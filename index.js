@@ -1,10 +1,20 @@
 const { Client, GatewayIntentBits, REST, Routes, ApplicationCommandOptionType, ActivityType } = require('discord.js');
 const noblox = require('noblox.js');
+const http = require('http'); // Built-in Node module, no npm install needed
 
-// --- BOT CONFIGURATION (Pulled securely from Render Environment Variables) ---
+// --- DUMMY WEB SERVER FOR RENDER DEPLOY DETECTION ---
+const PORT = process.env.PORT || 10000;
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('DMM Bot is running smoothly!\n');
+}).listen(PORT, () => {
+    console.log(`Web server listening on port ${PORT} to confirm Render deployment.`);
+});
+
+// --- BOT CONFIGURATION ---
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const ROBLOX_COOKIE = process.env.ROBLOX_COOKIE;
-const ROBLOX_GROUP_ID = process.env.ROBLOX_GROUP_ID; // Loaded as a string/number automatically
+const ROBLOX_GROUP_ID = process.env.ROBLOX_GROUP_ID; 
 const MIN_REQUIRED_ROLE_ID = process.env.MIN_REQUIRED_ROLE_ID; 
 
 // --- ROBLOX GROUP RANKS ---
