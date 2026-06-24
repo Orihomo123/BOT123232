@@ -19,6 +19,7 @@ const MIN_REQUIRED_ROLE_ID = process.env.MIN_REQUIRED_ROLE_ID;
 
 // --- ROBLOX GROUP RANKS ---
 const RANKS = {
+    "FREE ACCESS": 2, // Associate - (fr33)
     SOLDATO: 3,       
     CAPO: 4,          
     UNDERBOSS: 5,     
@@ -53,6 +54,7 @@ const commands = [
                 type: ApplicationCommandOptionType.Integer,
                 required: true,
                 choices: [
+                    { name: 'Free Access', value: RANKS["FREE ACCESS"] },
                     { name: 'Soldato Access', value: RANKS.SOLDATO },
                     { name: 'Capo Access', value: RANKS.CAPO },
                     { name: 'Underboss Access', value: RANKS.UNDERBOSS },
@@ -116,14 +118,16 @@ client.on('messageCreate', async message => {
         }
 
         const username = args[0];
-        const requestedRankName = args[1]?.toUpperCase();
+        
+        // Handle two-word rank names like "Free Access" by joining remainder arguments
+        let requestedRankName = args.slice(1).join(" ").toUpperCase();
 
         if (!username || !requestedRankName) {
-            return message.reply("❌ **Format Incorrect!** Use: `.rank [username] [Soldato/Capo/Underboss/Consigliere]`");
+            return message.reply("❌ **Format Incorrect!** Use: `.rank [username] [Free Access/Soldato/Capo/Underboss/Consigliere]`");
         }
 
         if (!RANKS[requestedRankName]) {
-            return message.reply(`❌ **Invalid Rank Name!** Please retype using one of these exact names:\n• \`Soldato\`\n• \`Capo\`\n• \`Underboss\`\n• \`Consigliere\``);
+            return message.reply(`❌ **Invalid Rank Name!** Please retype using one of these exact names:\n• \`Free Access\`\n• \`Soldato\`\n• \`Capo\`\n• \`Underboss\`\n• \`Consigliere\``);
         }
 
         const rankNum = RANKS[requestedRankName];
