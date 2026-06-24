@@ -2,21 +2,28 @@ const { Client, GatewayIntentBits, REST, Routes, ApplicationCommandOptionType, A
 const noblox = require('noblox.js');
 const http = require('http');
 
-// --- FORCE RENDER WEB SERVER ALIVE ---
+// --- MANDATORY FREE RENDER WEB SERVER ---
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('DMM Bot is running!\n');
+    res.end('DMM Bot is fully functional and online on Render Free Tier!\n');
 }).listen(PORT, () => {
-    console.log(`Web server completely active on port ${PORT}`);
+    console.log(`Render network health-check port active on: ${PORT}`);
 });
 
+// --- BOT CONFIGURATION ---
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const ROBLOX_COOKIE = process.env.ROBLOX_COOKIE;
 const ROBLOX_GROUP_ID = process.env.ROBLOX_GROUP_ID; 
 const MIN_REQUIRED_ROLE_ID = process.env.MIN_REQUIRED_ROLE_ID; 
 
-const RANKS = { "FREE ACCESS": 2, SOLDATO: 3, CAPO: 4, UNDERBOSS: 5, CONSIGLIERE: 6 };
+const RANKS = {
+    "FREE ACCESS": 2, 
+    SOLDATO: 3,       
+    CAPO: 4,          
+    UNDERBOSS: 5,     
+    CONSIGLIERE: 6    
+};
 
 const client = new Client({
     intents: [
@@ -55,34 +62,45 @@ const commands = [
     },
 ];
 
-// --- BOT LOGIN ---
 client.once('ready', async () => {
-    console.log(`✅ DISCORD OK: Logged in as ${client.user.tag}`);
+    console.log(`Logged into Discord successfully as ${client.user.tag}`);
 
-    client.user.setActivity({ name: 'DMM Bot', type: ActivityType.Playing });
+    client.user.setActivity({
+        name: 'DMM Bot',
+        type: ActivityType.Playing
+    });
 
-    // Try Roblox login asynchronously so it NEVER freezes Discord
+    // PROTECTIVE WRAPPER: This runs Roblox authentication separately
+    // If Roblox's region lock blocks Render, it catches the error safely
+    // and keeps the Discord bot from going offline!
     (async () => {
         try {
             if (!ROBLOX_COOKIE) {
-                console.error("❌ ROBLOX ERROR: Cookie missing from Environment Variables.");
-                return;
+                console.error("❌ ROBLOX_COOKIE environment variable is completely missing!");
+            } else {
+                await noblox.setOptions({
+                    general: {
+                        domain: "roproxy.com" 
+                    }
+                });
+                const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
+                console.log(`✅ Logged into Roblox safely via Proxy as user: ${currentUser.UserName}`);
             }
-            await noblox.setOptions({ general: { domain: "roproxy.com" } });
-            const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
-            console.log(`✅ ROBLOX OK: Connected as ${currentUser.UserName}`);
         } catch (err) {
-            console.error("❌ ROBLOX ERROR: Auth failed, but Discord will stay online! Reason:", err.message);
+            console.error("❌ Roblox Auth Error (Discord remaining online):", err.message);
         }
     })();
 
-    // Register commands
+    // Register slash commands globally
     const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
     try {
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('✅ COMMANDS OK: Slash commands synced.');
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commands },
+        );
+        console.log('Successfully synchronized Discord (/) commands.');
     } catch (error) {
-        console.error('❌ COMMANDS ERROR:', error);
+        console.error(error);
     }
 });
 
@@ -96,46 +114,70 @@ function checkPermissions(member, guild) {
 // --- PREFIX COMMAND (.rank) ---
 client.on('messageCreate', async message => {
     if (message.author.bot || !message.content.toLowerCase().startsWith('.rank')) return;
+
     const args = message.content.trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
     if (command === '.rank') {
-        if (!checkPermissions(message.member, message.guild)) return message.reply("You do not have permission.");
+        if (!checkPermissions(message.member, message.guild)) {
+            return message.reply("You do not have permission to run this command.");
+        }
+
         const username = args[0];
         let requestedRankName = args.slice(1).join(" ").toUpperCase();
 
-        if (!username || !requestedRankName || !RANKS[requestedRankName]) {
-            return message.reply("❌ Use: `.rank [username] [Free Access/Soldato/Capo/Underboss/Consigliere]`");
+        if (!username || !requestedRankName) {
+            return message.reply("❌ Use format: `.rank [username] [Free Access/Soldato/Capo/Underboss/Consigliere]`");
         }
 
-        const statusMsg = await message.reply("⏳ Ranking...");
+        if (!RANKS[requestedRankName]) {
+            return message.reply(`❌ Invalid rank name. Choose from: Free Access, Soldato, Capo, Underboss, Consigliere.`);
+        }
+
+        const rankNum = RANKS[requestedRankName];
+        const statusMsg = await message.reply("⏳ Adjusting group rank...");
+
         try {
             const userId = await noblox.getIdFromUsername(username.trim());
-            await noblox.setRank({ group: Number(ROBLOX_GROUP_ID), target: userId, rank: RANKS[requestedRankName] });
-            await statusMsg.edit(`✅ Ranked **${username}** to **${requestedRankName}**!`);
+            await noblox.setRank({
+                group: Number(ROBLOX_GROUP_ID),
+                target: userId,
+                rank: rankNum
+            });
+            await statusMsg.edit(`✅ Successfully ranked **${username}** to **${requestedRankName}**!`);
         } catch (err) {
-            await statusMsg.edit(`❌ Failed: ${err.message}`);
+            console.error(err);
+            await statusMsg.edit(`❌ Operation failed: ${err.message}`);
         }
     }
 });
 
 // --- SLASH COMMAND (/setrank) ---
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand() || interaction.commandName !== 'setrank') return;
-    if (!checkPermissions(interaction.member, interaction.guild)) {
-        return interaction.reply({ content: 'No permission.', ephemeral: true });
-    }
+    if (!interaction.isChatInputCommand()) return;
 
-    const username = interaction.options.getString('username').trim();
-    const rankNum = interaction.options.getInteger('rank');
-    await interaction.deferReply();
+    if (interaction.commandName === 'setrank') {
+        if (!checkPermissions(interaction.member, interaction.guild)) {
+            return interaction.reply({ content: 'You do not have permission to run this command.', ephemeral: true });
+        }
 
-    try {
-        const userId = await noblox.getIdFromUsername(username);
-        await noblox.setRank({ group: Number(ROBLOX_GROUP_ID), target: userId, rank: rankNum });
-        await interaction.editReply(`✅ Ranked **${username}** successfully!`);
-    } catch (err) {
-        await interaction.editReply(`❌ Failed: ${err.message}`);
+        const username = interaction.options.getString('username').trim();
+        const rankNum = interaction.options.getInteger('rank');
+
+        await interaction.deferReply();
+
+        try {
+            const userId = await noblox.getIdFromUsername(username);
+            await noblox.setRank({
+                group: Number(ROBLOX_GROUP_ID),
+                target: userId,
+                rank: rankNum
+            });
+            await interaction.editReply(`✅ Successfully ranked **${username}** to your chosen rank!`);
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply(`❌ Operation failed: ${err.message}`);
+        }
     }
 });
 
