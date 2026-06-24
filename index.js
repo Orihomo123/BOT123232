@@ -75,11 +75,9 @@ client.once('ready', async () => {
         if (!ROBLOX_COOKIE) {
             console.error("❌ ROBLOX_COOKIE environment variable is completely missing!");
         } else {
-            // Forces noblox to use a proxy domain to bypass Render's region block
+            // Correct syntax for setting the proxy domain directly in this version
             await noblox.setOptions({
-                general: {
-                    domain: "roproxy.com" 
-                }
+                domain: "roproxy.com"
             });
             const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
             console.log(`✅ Logged into Roblox safely via Proxy as user: ${currentUser.UserName}`);
