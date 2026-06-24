@@ -8,6 +8,6 @@
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "noblox.js": "^5.2.0"
+    "noblox.js": "^4.16.0"
   }
 }
