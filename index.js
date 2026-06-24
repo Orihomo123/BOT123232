@@ -118,8 +118,6 @@ client.on('messageCreate', async message => {
         }
 
         const username = args[0];
-        
-        // Handle two-word rank names like "Free Access" by joining remainder arguments
         let requestedRankName = args.slice(1).join(" ").toUpperCase();
 
         if (!username || !requestedRankName) {
@@ -139,7 +137,13 @@ client.on('messageCreate', async message => {
                 return await statusMsg.edit(`Could not find a Roblox user named '${username}'.`);
             }
 
-            await noblox.setRank(Number(ROBLOX_GROUP_ID), userId, rankNum);
+            // FIXED: Using correct object signature
+            await noblox.setRank({
+                group: Number(ROBLOX_GROUP_ID),
+                target: userId,
+                rank: rankNum
+            });
+            
             await statusMsg.edit(`✅ Successfully updated **${username}** to **${requestedRankName}**!`);
 
         } catch (err) {
@@ -176,7 +180,13 @@ client.on('interactionCreate', async interaction => {
                 return await interaction.editReply(`Could not find a Roblox user named '${username}'.`);
             }
             
-            await noblox.setRank(Number(ROBLOX_GROUP_ID), userId, rankNum);
+            // FIXED: Using correct object signature
+            await noblox.setRank({
+                group: Number(ROBLOX_GROUP_ID),
+                target: userId,
+                rank: rankNum
+            });
+            
             await interaction.editReply(`Successfully updated **${username}** to your selected rank!`);
             
         } catch (err) {
