@@ -70,13 +70,15 @@ client.once('ready', async () => {
         type: ActivityType.Playing
     });
 
-    // Run Roblox authentication
+    // Run Roblox authentication safely
     try {
         if (!ROBLOX_COOKIE) {
             console.error("❌ ROBLOX_COOKIE environment variable is completely missing!");
         } else {
-            // Correct way to apply the proxy domain configuration globally in noblox v4
-            noblox.options.domain = "roproxy.com";
+            // Safe proxy settings for older noblox version
+            if (noblox.options) {
+                noblox.options.domain = "roproxy.com";
+            }
             
             const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
             console.log(`✅ Logged into Roblox safely via Proxy as user: ${currentUser.UserName}`);
