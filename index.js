@@ -2,11 +2,11 @@ const { Client, GatewayIntentBits, REST, Routes, ApplicationCommandOptionType, A
 const noblox = require('noblox.js');
 const http = require('http');
 
-// --- RENDER KEEP-ALIVE WEB SERVER ---
+// --- MANDATORY FREE RENDER WEB SERVER ---
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('DMM Bot is running smoothly!\n');
+    res.end('DMM Bot is online and running on Render Free Tier!\n');
 }).listen(PORT, () => {
     console.log(`Web server listening on port ${PORT}`);
 });
@@ -17,7 +17,6 @@ const ROBLOX_COOKIE = process.env.ROBLOX_COOKIE;
 const ROBLOX_GROUP_ID = process.env.ROBLOX_GROUP_ID; 
 const MIN_REQUIRED_ROLE_ID = process.env.MIN_REQUIRED_ROLE_ID; 
 
-// --- ROBLOX GROUP RANKS ---
 const RANKS = {
     "FREE ACCESS": 2, 
     SOLDATO: 3,       
@@ -35,7 +34,6 @@ const client = new Client({
     ]
 });
 
-// Define slash command structure
 const commands = [
     {
         name: 'setrank',
@@ -64,42 +62,37 @@ const commands = [
     },
 ];
 
-// When the bot comes online
 client.once('ready', async () => {
-    console.log(`Logged into Discord as ${client.user.tag}`);
+    console.log(`Logged into Discord successfully as ${client.user.tag}`);
 
     client.user.setActivity({
         name: 'DMM Bot',
         type: ActivityType.Playing
     });
 
-    // STRICT ROBLOX COOKIE AUTHENTICATION
     try {
-        const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
-        if (!currentUser || !currentUser.UserName) {
-            console.error("❌ CRITICAL ERROR: Roblox cookie validation failed. Username is undefined. Your cookie is invalid or expired.");
+        if (!ROBLOX_COOKIE) {
+            console.error("❌ ROBLOX_COOKIE environment variable is completely missing!");
         } else {
-            console.log(`✅ Logged into Roblox successfully as: ${currentUser.UserName}`);
+            const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
+            console.log(`✅ Logged into Roblox safely as user: ${currentUser.UserName}`);
         }
     } catch (err) {
-        console.error("❌ CRITICAL ERROR during Roblox login verification:", err.message);
+        console.error("❌ Roblox Auth Error:", err.message);
     }
 
-    // Register slash commands
     const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
     try {
-        console.log('Started refreshing application (/) commands.');
         await rest.put(
             Routes.applicationCommands(client.user.id),
             { body: commands },
         );
-        console.log('Successfully reloaded application (/) commands.');
+        console.log('Successfully synchronized Discord (/) commands.');
     } catch (error) {
         console.error(error);
     }
 });
 
-// Helper function to validate server hierarchy permissions
 function checkPermissions(member, guild) {
     if (!MIN_REQUIRED_ROLE_ID) return false;
     const targetBaseRole = guild.roles.cache.get(MIN_REQUIRED_ROLE_ID);
@@ -107,7 +100,7 @@ function checkPermissions(member, guild) {
     return member.roles.cache.some(role => role.position >= targetBaseRole.position);
 }
 
-// --- TEXT-PREFIX COMMAND HANDLER (.rank) ---
+// --- PREFIX COMMAND (.rank) ---
 client.on('messageCreate', async message => {
     if (message.author.bot || !message.content.toLowerCase().startsWith('.rank')) return;
 
@@ -116,79 +109,63 @@ client.on('messageCreate', async message => {
 
     if (command === '.rank') {
         if (!checkPermissions(message.member, message.guild)) {
-            return message.reply("You do not have a high enough rank to use this command.");
+            return message.reply("You do not have permission to run this command.");
         }
 
         const username = args[0];
         let requestedRankName = args.slice(1).join(" ").toUpperCase();
 
         if (!username || !requestedRankName) {
-            return message.reply("❌ **Format Incorrect!** Use: `.rank [username] [Free Access/Soldato/Capo/Underboss/Consigliere]`");
+            return message.reply("❌ Use format: `.rank [username] [Free Access/Soldato/Capo/Underboss/Consigliere]`");
         }
 
         if (!RANKS[requestedRankName]) {
-            return message.reply(`❌ **Invalid Rank Name!** Please retype using one of these exact names:\n• \`Free Access\`\n• \`Soldato\`\n• \`Capo\`\n• \`Underboss\`\n• \`Consigliere\``);
+            return message.reply(`❌ Invalid rank name. Choose from: Free Access, Soldato, Capo, Underboss, Consigliere.`);
         }
 
         const rankNum = RANKS[requestedRankName];
-        const statusMsg = await message.reply("⏳ Processing rank adjustment...");
+        const statusMsg = await message.reply("⏳ Adjusting group rank...");
 
         try {
             const userId = await noblox.getIdFromUsername(username.trim());
-            if (!userId) {
-                return await statusMsg.edit(`Could not find a Roblox user named '${username}'.`);
-            }
-
             await noblox.setRank({
                 group: Number(ROBLOX_GROUP_ID),
                 target: userId,
                 rank: rankNum
             });
-            
-            await statusMsg.edit(`✅ Successfully updated **${username}** to **${requestedRankName}**!`);
-
+            await statusMsg.edit(`✅ Successfully ranked **${username}** to **${requestedRankName}**!`);
         } catch (err) {
             console.error(err);
-            await statusMsg.edit(`An error occurred: ${err.message}. Please check if the Roblox cookie is still valid.`);
+            await statusMsg.edit(`❌ Operation failed: ${err.message}`);
         }
     }
 });
 
-// --- INTERACTION HANDLER (Slash Commands) ---
+// --- SLASH COMMAND (/setrank) ---
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'setrank') {
         if (!checkPermissions(interaction.member, interaction.guild)) {
-            return interaction.reply({ 
-                content: 'You do not have a high enough rank to use this command.', 
-                ephemeral: true 
-            });
+            return interaction.reply({ content: 'You do not have permission to run this command.', ephemeral: true });
         }
 
         const username = interaction.options.getString('username').trim();
         const rankNum = interaction.options.getInteger('rank');
 
-        // Instantly acknowledge to clear the 3-second timeout window
         await interaction.deferReply();
 
         try {
             const userId = await noblox.getIdFromUsername(username);
-            if (!userId) {
-                return await interaction.editReply(`Could not find a Roblox user named '${username}'.`);
-            }
-            
             await noblox.setRank({
                 group: Number(ROBLOX_GROUP_ID),
                 target: userId,
                 rank: rankNum
             });
-            
-            await interaction.editReply(`Successfully updated **${username}** to your selected rank!`);
-            
+            await interaction.editReply(`✅ Successfully ranked **${username}** to your chosen rank!`);
         } catch (err) {
             console.error(err);
-            await interaction.editReply(`An error occurred: ${err.message}. Ensure the bot cookie is valid and has sufficient rank authority.`);
+            await interaction.editReply(`❌ Operation failed: ${err.message}`);
         }
     }
 });
