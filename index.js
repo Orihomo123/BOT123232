@@ -1,14 +1,14 @@
 const { Client, GatewayIntentBits, REST, Routes, ApplicationCommandOptionType, ActivityType } = require('discord.js');
 const noblox = require('noblox.js');
-const http = require('http'); // Built-in Node module, no npm install needed
+const http = require('http');
 
-// --- DUMMY WEB SERVER FOR RENDER DEPLOY DETECTION ---
+// --- RENDER KEEP-ALIVE WEB SERVER ---
 const PORT = process.env.PORT || 10000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('DMM Bot is running smoothly!\n');
 }).listen(PORT, () => {
-    console.log(`Web server listening on port ${PORT} to confirm Render deployment.`);
+    console.log(`Web server listening on port ${PORT}`);
 });
 
 // --- BOT CONFIGURATION ---
@@ -19,14 +19,13 @@ const MIN_REQUIRED_ROLE_ID = process.env.MIN_REQUIRED_ROLE_ID;
 
 // --- ROBLOX GROUP RANKS ---
 const RANKS = {
-    "FREE ACCESS": 2, // Associate - (fr33)
+    "FREE ACCESS": 2, 
     SOLDATO: 3,       
     CAPO: 4,          
     UNDERBOSS: 5,     
     CONSIGLIERE: 6    
 };
 
-// Create Discord Client
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds, 
@@ -36,7 +35,7 @@ const client = new Client({
     ]
 });
 
-// Define the slash command structure
+// Define slash command structure
 const commands = [
     {
         name: 'setrank',
@@ -69,21 +68,24 @@ const commands = [
 client.once('ready', async () => {
     console.log(`Logged into Discord as ${client.user.tag}`);
 
-    // Set Bot Activity Status
     client.user.setActivity({
         name: 'DMM Bot',
         type: ActivityType.Playing
     });
 
-    // Authenticate with Roblox safely
+    // STRICT ROBLOX COOKIE AUTHENTICATION
     try {
-        await noblox.setCookie(ROBLOX_COOKIE);
-        console.log(`Logged into Roblox successfully!`);
+        const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
+        if (!currentUser || !currentUser.UserName) {
+            console.error("❌ CRITICAL ERROR: Roblox cookie validation failed. Username is undefined. Your cookie is invalid or expired.");
+        } else {
+            console.log(`✅ Logged into Roblox successfully as: ${currentUser.UserName}`);
+        }
     } catch (err) {
-        console.error("Roblox Login Warning:", err.message);
+        console.error("❌ CRITICAL ERROR during Roblox login verification:", err.message);
     }
 
-    // Register slash commands globally
+    // Register slash commands
     const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
     try {
         console.log('Started refreshing application (/) commands.');
@@ -137,7 +139,6 @@ client.on('messageCreate', async message => {
                 return await statusMsg.edit(`Could not find a Roblox user named '${username}'.`);
             }
 
-            // FIXED: Using correct object signature
             await noblox.setRank({
                 group: Number(ROBLOX_GROUP_ID),
                 target: userId,
@@ -148,11 +149,7 @@ client.on('messageCreate', async message => {
 
         } catch (err) {
             console.error(err);
-            if (err.message.includes("Permission")) {
-                await statusMsg.edit(`The bot lacks permissions. Make sure the bot account is ranked higher than the target rank and has 'Manage Lower Ranks' enabled.`);
-            } else {
-                await statusMsg.edit(`An error occurred: ${err.message}`);
-            }
+            await statusMsg.edit(`An error occurred: ${err.message}. Please check if the Roblox cookie is still valid.`);
         }
     }
 });
@@ -172,6 +169,7 @@ client.on('interactionCreate', async interaction => {
         const username = interaction.options.getString('username').trim();
         const rankNum = interaction.options.getInteger('rank');
 
+        // Instantly acknowledge to clear the 3-second timeout window
         await interaction.deferReply();
 
         try {
@@ -180,7 +178,6 @@ client.on('interactionCreate', async interaction => {
                 return await interaction.editReply(`Could not find a Roblox user named '${username}'.`);
             }
             
-            // FIXED: Using correct object signature
             await noblox.setRank({
                 group: Number(ROBLOX_GROUP_ID),
                 target: userId,
@@ -191,11 +188,7 @@ client.on('interactionCreate', async interaction => {
             
         } catch (err) {
             console.error(err);
-            if (err.message.includes("Permission")) {
-                await interaction.editReply(`The bot lacks permissions. Make sure the bot account is ranked higher than the rank you are giving out, and has 'Manage Lower Ranks' turned on.`);
-            } else {
-                await interaction.editReply(`An unexpected error occurred while changing rank: ${err.message}`);
-            }
+            await interaction.editReply(`An error occurred: ${err.message}. Ensure the bot cookie is valid and has sufficient rank authority.`);
         }
     }
 });
