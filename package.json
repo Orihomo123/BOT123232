@@ -1,18 +1,13 @@
 {
   "name": "dmm-bot",
   "version": "1.0.0",
-  "description": "Discord ranking bot for Roblox group Dmm",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "latest",
-    "noblox.js": "latest"
-  },
-  "engines": {
-    "node": ">=16.9.0"
-  },
-  "author": "",
-  "license": "ISC"
+    "discord.js": "^14.14.1",
+    "noblox.js": "^5.2.0"
+  }
 }
