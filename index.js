@@ -75,15 +75,14 @@ client.once('ready', async () => {
         if (!ROBLOX_COOKIE) {
             console.error("❌ ROBLOX_COOKIE environment variable is completely missing!");
         } else {
-            // Correct syntax for setting the proxy domain directly in this version
-            await noblox.setOptions({
-                domain: "roproxy.com"
-            });
+            // Correct way to apply the proxy domain configuration globally in noblox v4
+            noblox.options.domain = "roproxy.com";
+            
             const currentUser = await noblox.setCookie(ROBLOX_COOKIE);
             console.log(`✅ Logged into Roblox safely via Proxy as user: ${currentUser.UserName}`);
         }
     } catch (err) {
-        console.error("❌ Roblox Login Warning:", err.message);
+        console.error("❌ Roblox Login Error:", err.message);
     }
 
     // Register slash commands globally
